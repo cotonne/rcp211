@@ -85,7 +85,7 @@ class Runner():
             actor_optimizer.step()
             total_reward += r_t
 
-            self.central.memory.push(batch[2], action, r_t, batch[3])
+            self.central.memory.push(batch[2].unsqueeze(0), torch.tensor([action]), batch[3].unsqueeze(0), torch.tensor([r_t]))
 
             # state = state_t_plus_1
         self.central.queue.put({
