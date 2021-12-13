@@ -4,3 +4,5 @@ ROMS/
 *.rar
 *.png
 venv/
+*.avi
+__pycache__/
