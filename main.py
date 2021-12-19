@@ -150,10 +150,14 @@ threading.Thread(target=worker, daemon=True).start()
 
 NUMBER_OF_EPISODES = 200
 
-with ThreadPoolExecutor(max_workers=4) as executor:
-    futures = []
-    for episode in range(NUMBER_OF_EPISODES):
-        futures.append(executor.submit(start_runner, episode, central, Pacman))
+with open('execution.log', 'w') as f:
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        futures = []
+        for episode in range(NUMBER_OF_EPISODES):
+            futures.append(executor.submit(start_runner, episode, central, Pacman))
 
-    for episode in range(NUMBER_OF_EPISODES):
-        print(chalk.green(futures[episode].result()))
+        for episode in range(NUMBER_OF_EPISODES):
+            result = futures[episode].result()
+            print(chalk.green(result))
+            f.write(result + "\n")
+            f.flush()
