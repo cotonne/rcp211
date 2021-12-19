@@ -6,3 +6,4 @@ ROMS/
 venv/
 *.avi
 __pycache__/
+.idea/

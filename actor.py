@@ -46,4 +46,4 @@ class Actor(nn.Module):
         dist = Normal(mu, std)
         action = dist.sample()
         log_prob = dist.log_prob(action).sum(dim=-1)
-        return np.argmax(action).item(), log_prob
+        return torch.argmax(action), log_prob

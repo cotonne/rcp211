@@ -1,4 +1,11 @@
 ale-py==0.7.3
-torch==1.10.0
-torchvision==0.11.1
+importlib-resources==5.4.0
+numpy==1.21.4
 opencv-python==4.5.4.60
+Pillow==8.4.0
+simple-chalk==0.1.0
+torch==1.10.1+cu113
+torchaudio==0.10.1+cu113
+torchvision==0.11.2+cu113
+typing_extensions==4.0.1
+zipp==3.6.0

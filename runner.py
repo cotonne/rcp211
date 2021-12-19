@@ -12,13 +12,14 @@ from recorder import Recorder
 γ = 0.9
 
 class Runner():
-    def __init__(self, episode, central, rom) -> None:
+    def __init__(self, device, episode, central, rom) -> None:
+        self.device = device
         self.episode = episode
         self.system = ALEInterface()
         self.system.loadROM(rom)
         self.legal_actions = self.system.getLegalActionSet()
-        self.V_critic = Critic()
-        self.actor = Actor(action_size=len(self.legal_actions))
+        self.V_critic = Critic().to(device)
+        self.actor = Actor(action_size=len(self.legal_actions)).to(device)
         self.central = central
         self.recorder = Recorder(episode)
 
@@ -30,15 +31,18 @@ class Runner():
         self.actor.train()
         self.actor.load_state_dict(self.central.weight_memory["actor"])
         actor_optimizer = optim.Adam(self.actor.parameters(), lr=1e-4)
-        previous_state = torch.zeros(250, 160, 3)
-        batch = torch.zeros(4, 1, 94, 84)
+        previous_state = torch.zeros(250, 160, 3).to(self.device)
+        batch = torch.zeros(4, 1, 94, 84).to(self.device)
         total_reward = 0
-        state = torch.from_numpy(self.system.getScreenRGB())
+        state = torch.from_numpy(self.system.getScreenRGB()).to(self.device)
 
         # Shift images
         batch = torch.roll(batch, 3, 0) 
         batch[3] = preprocessing(previous_state, state)
         previous_state = state
+
+        dθ = {name: torch.zeros(param.shape).to(self.device) for name, param in self.actor.named_parameters()}
+        dθv = {name: torch.zeros(param.shape).to(self.device) for name, param in self.V_critic.named_parameters()}
 
         self.recorder.start()
         while not self.system.game_over():
@@ -54,7 +58,7 @@ class Runner():
             for _ in range(4):
                 r_t += self.system.act(a_t)
 
-            state_t_plus_1 = torch.from_numpy(self.system.getScreenRGB())
+            state_t_plus_1 = torch.from_numpy(self.system.getScreenRGB()).to(self.device)
             self.recorder.save(self.system)
             batch = torch.roll(batch, 3, 0) 
             batch[3] = preprocessing(previous_state, state_t_plus_1)
@@ -67,6 +71,8 @@ class Runner():
             value_loss = F.smooth_l1_loss(V, Vp.detach())
             critic_optimizer.zero_grad()
             value_loss.backward()
+            gradients_v = {name: param.grad.detach() for name, param in self.V_critic.named_parameters()}
+            dθv = {key: (value - gradients_v[key]) for key, value in dθv.items()}
             critic_optimizer.step()
 
             V_ = V.detach().squeeze().squeeze()
@@ -82,6 +88,8 @@ class Runner():
 
             actor_optimizer.zero_grad()
             policy_loss.backward()
+            gradients = {name: param.grad.detach() for name, param in self.actor.named_parameters()}
+            dθ = {key: (value - gradients[key]) for (key, value) in dθ.items()}
             actor_optimizer.step()
             total_reward += r_t
 
@@ -89,8 +97,8 @@ class Runner():
 
             # state = state_t_plus_1
         self.central.queue.put({
-            "actor": self.actor.state_dict(),
-            "critic": self.V_critic.state_dict()
+            "actor": dθ,
+            "critic": dθv
         })
         self.system.reset_game()
         self.recorder.stop()
