@@ -4,6 +4,16 @@ import os
 import cv2
 import glob
 import shutil
+import re
+import math
+from pathlib import Path
+
+file_pattern = re.compile(r'.*?(\d+).*?')
+def get_order(file):
+    match = file_pattern.match(Path(file).name)
+    if not match:
+        return math.inf
+    return int(match.groups()[0])
 
 class Recorder():
     def __init__(self, episode: int) -> None:
@@ -24,7 +34,7 @@ class Recorder():
     
     def stop(self) -> None:
         img_array = []
-        for filename in glob.glob(f'{self.episode}/*.png'):
+        for filename in sorted(glob.glob(f'{self.episode}/*.png'), key=get_order):
             img = cv2.imread(filename)
             height, width, layers = img.shape
             size = (width,height)
