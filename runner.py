@@ -22,6 +22,7 @@ class Runner():
         self.actor = Actor(action_size=len(self.legal_actions)).to(device)
         self.central = central
         self.recorder = Recorder(episode)
+        self.entropy_weight = 1e-2
 
 
     def run(self):
@@ -71,26 +72,31 @@ class Runner():
             value_loss = F.smooth_l1_loss(V, Vp.detach())
             critic_optimizer.zero_grad()
             value_loss.backward()
-            gradients_v = {name: param.grad.detach() for name, param in self.V_critic.named_parameters()}
-            dθv = {key: (value - gradients_v[key]) for key, value in dθv.items()}
             critic_optimizer.step()
+            gradients_v = {name: param.grad.detach() for name, param in self.V_critic.named_parameters()}
+            dθv = {key: (value + gradients_v[key]) for key, value in dθv.items()}
 
             V_ = V.detach().squeeze().squeeze()
             Vp_ = Vp.detach().squeeze().squeeze()
             # 𝐴(𝑠,𝑎)=𝑟+𝛾𝑉(𝑠′)−𝑉(𝑠)
             # L’erreur TD est un estimateur de l’avantage
             # δπθ = r + γVπθ(s′) −Vπθ(s)
+            print(A)
             A = (r_t + γ * Vp_ - V_)
 
             # Le gradient est donné par :
             # ∇θJ(θ) = Eπθ[∇θ log πθ(a|s)δπθ(s,a)]
+            # et on fait une montée de gradient
+            # Equivalent à calculer -∇θJ(θ) et faire une descente de gradient
             policy_loss = -A * log_policy
+            # Regularization: Entropy = - 	Σ p(a) log p(a)
+            policy_loss += self.entropy_weight * -log_policy
 
             actor_optimizer.zero_grad()
             policy_loss.backward()
-            gradients = {name: param.grad.detach() for name, param in self.actor.named_parameters()}
-            dθ = {key: (value - gradients[key]) for (key, value) in dθ.items()}
             actor_optimizer.step()
+            gradients = {name: param.grad.detach() for name, param in self.actor.named_parameters()}
+            dθ = {key: (value + gradients[key]) for (key, value) in dθ.items()}
             total_reward += r_t
 
             self.central.memory.push(batch[2].unsqueeze(0), torch.tensor([action]), batch[3].unsqueeze(0), torch.tensor([r_t]))
