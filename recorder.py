@@ -7,6 +7,10 @@ import shutil
 import re
 import math
 from pathlib import Path
+import numpy as np
+import torch
+import PIL.Image as Image
+import matplotlib.pyplot as plt
 
 file_pattern = re.compile(r'.*?(\d+).*?')
 def get_order(file):
@@ -28,10 +32,21 @@ class Recorder():
         if os.path.exists(f'{self.episode}.avi'):
             os.remove(f'{self.episode}.avi')
 
-    def save(self, system: ALEInterface):
+    def save_system(self, system):
         system.saveScreenPNG(f"{self.episode}/{self.current}.png")
         self.current += 1
+
+    def save_RGB(self, data: torch.tensor):
+        print(data.shape)
+        image = Image.fromarray(data.numpy().astype(np.uint8))
+        image.save(f"{self.episode}/{self.current}.png")
+        self.current += 1
     
+    def save_Y(self, data: torch.tensor):
+        image = (255 * data.permute(1, 2, 0)).numpy().astype(np.uint8)
+        cv2.imwrite(f"{self.episode}/{self.current}.png", image)
+        self.current += 1
+
     def stop(self) -> None:
         img_array = []
         for filename in sorted(glob.glob(f'{self.episode}/*.png'), key=get_order):

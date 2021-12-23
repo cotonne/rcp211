@@ -12,10 +12,11 @@ from recorder import Recorder
 γ = 0.9
 
 class Runner():
-    def __init__(self, device, episode, central, rom) -> None:
+    def __init__(self, device, episode, central, rom, display_screen = False) -> None:
         self.device = device
         self.episode = episode
         self.system = ALEInterface()
+        self.system.setBool("display_screen", display_screen)
         self.system.loadROM(rom)
         self.legal_actions = self.system.getLegalActionSet()
         self.V_critic = Critic().to(device)
@@ -56,20 +57,31 @@ class Runner():
             # Receive reward r_t 
             # Skip k frames. No big difference between two close frames
             r_t = 0
-            for _ in range(4):
+            frames_skipped = 4
+            frames = []
+            for i in range(frames_skipped):
                 r_t += self.system.act(a_t)
+                frames.append(torch.from_numpy(self.system.getScreenRGB()).to(self.device).type(torch.FloatTensor))
 
-            state_t_plus_1 = torch.from_numpy(self.system.getScreenRGB()).to(self.device)
-            self.recorder.save(self.system)
+            state_t_plus_1 = torch.stack(frames).mean(dim=0)
+            # self.recorder.save_RGB(state_t_plus_1)
+            # self.recorder.save(self.system)
+            # The function w from algorithm 1 described below applies this preprocess-
+            # ing to the m most recent frames and stacks them to produce the input to the
+            # Q-function, in which m=4, although the algorithm is robust to different values of
+            # m (for example, 3 or 5).
+            V = self.V_critic(batch[3].unsqueeze(0))
+            
             batch = torch.roll(batch, 3, 0) 
             batch[3] = preprocessing(previous_state, state_t_plus_1)
+            self.recorder.save_Y(batch[3])
             previous_state = state_t_plus_1
 
-            V = self.V_critic(batch[2].unsqueeze(0))
-            Vp = self.V_critic(batch[3].unsqueeze(0))
+            # v(s_t) = R_t+1 + γ v(s_t+1)
+            target_V = r_t + γ * self.V_critic(batch[3].unsqueeze(0)).detach()
             
             # update value
-            value_loss = F.smooth_l1_loss(V, Vp.detach())
+            value_loss = F.smooth_l1_loss(V, target_V)
             critic_optimizer.zero_grad()
             value_loss.backward()
             critic_optimizer.step()
@@ -77,19 +89,18 @@ class Runner():
             dθv = {key: (value + gradients_v[key]) for key, value in dθv.items()}
 
             V_ = V.detach().squeeze().squeeze()
-            Vp_ = Vp.detach().squeeze().squeeze()
+            Vp_ = target_V.detach().squeeze().squeeze()
             # 𝐴(𝑠,𝑎)=𝑟+𝛾𝑉(𝑠′)−𝑉(𝑠)
-            # L’erreur TD est un estimateur de l’avantage
+            # L’erreur TD est un estimateur non-biaisé de l’avantage
             # δπθ = r + γVπθ(s′) −Vπθ(s)
-            print(A)
             A = (r_t + γ * Vp_ - V_)
 
             # Le gradient est donné par :
-            # ∇θJ(θ) = Eπθ[∇θ log πθ(a|s)δπθ(s,a)]
+            # ∇θJ(θ) = Eπθ[∇θ log πθ(a|s)A(s,a)]
             # et on fait une montée de gradient
             # Equivalent à calculer -∇θJ(θ) et faire une descente de gradient
             policy_loss = -A * log_policy
-            # Regularization: Entropy = - 	Σ p(a) log p(a)
+            # Regularization: Entropy = - Σ p(a) log p(a)
             policy_loss += self.entropy_weight * -log_policy
 
             actor_optimizer.zero_grad()

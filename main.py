@@ -39,7 +39,7 @@ class Central:
 
 
 def start_runner(episode: int, central: Central, rom):
-    runner = Runner(device, episode, central, rom)
+    runner = Runner(device, episode, central, rom, display_screen=True)
     return runner.run()
 
 
@@ -49,6 +49,7 @@ system.loadROM(Pacman)
 
 # Get the list of legal actions
 legal_actions = system.getLegalActionSet()
+print(legal_actions)
 
 V_critic_target = Critic().to(device)
 critic_optimizer = optim.Adam(V_critic_target.parameters(), lr=1e-3)
@@ -60,7 +61,8 @@ BATCH_SIZE = 128
 
 
 def worker():
-    alpha = 1e-1
+    alpha = 1e-4
+    alpha = 1
     print('Booting worker...')
     while True:
         gradients = central.queue.get(block=True)
@@ -148,10 +150,11 @@ def worker():
 
 threading.Thread(target=worker, daemon=True).start()
 
-NUMBER_OF_EPISODES = 200
+NUMBER_OF_EPISODES = 100
+MAX_WORKERS = 1
 
 with open('execution.log', 'w') as f:
-    with ThreadPoolExecutor(max_workers=4) as executor:
+    with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
         futures = []
         for episode in range(NUMBER_OF_EPISODES):
             futures.append(executor.submit(start_runner, episode, central, Pacman))
