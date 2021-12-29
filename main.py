@@ -39,7 +39,7 @@ class Central:
 
 
 def start_runner(episode: int, central: Central, rom):
-    runner = Runner(device, episode, central, rom, display_screen=True)
+    runner = Runner(device, episode, central, rom, display_screen=False)
     return runner.run()
 
 
@@ -150,7 +150,7 @@ def worker():
 
 threading.Thread(target=worker, daemon=True).start()
 
-NUMBER_OF_EPISODES = 100
+NUMBER_OF_EPISODES = 400
 MAX_WORKERS = 1
 
 with open('execution.log', 'w') as f:

@@ -1,4 +1,4 @@
-from ale_py import ALEInterface
+from ale_py import ALEInterface, LoggerMode
 
 import torch
 import torch.nn.functional as F
@@ -16,6 +16,7 @@ class Runner():
         self.device = device
         self.episode = episode
         self.system = ALEInterface()
+        self.system.setLoggerMode(LoggerMode.Error)
         self.system.setBool("display_screen", display_screen)
         self.system.loadROM(rom)
         self.legal_actions = self.system.getLegalActionSet()
@@ -53,7 +54,7 @@ class Runner():
             
             # Apply an action and get the resulting reward
             # State?
-            # Perform action a_t accoring to policy π(a_t / s_t; θ)
+            # Perform action a_t according to policy π(a_t / s_t; θ)
             # Receive reward r_t 
             # Skip k frames. No big difference between two close frames
             r_t = 0
@@ -63,7 +64,7 @@ class Runner():
                 r_t += self.system.act(a_t)
                 frames.append(torch.from_numpy(self.system.getScreenRGB()).to(self.device).type(torch.FloatTensor))
 
-            state_t_plus_1 = torch.stack(frames).mean(dim=0)
+            state_t_plus_1 = torch.stack(frames).mean(dim=0).to(self.device)
             # self.recorder.save_RGB(state_t_plus_1)
             # self.recorder.save(self.system)
             # The function w from algorithm 1 described below applies this preprocess-

@@ -43,7 +43,7 @@ class Recorder():
         self.current += 1
     
     def save_Y(self, data: torch.tensor):
-        image = (255 * data.permute(1, 2, 0)).numpy().astype(np.uint8)
+        image = (255 * data.permute(1, 2, 0)).cpu().numpy().astype(np.uint8)
         cv2.imwrite(f"{self.episode}/{self.current}.png", image)
         self.current += 1
 
