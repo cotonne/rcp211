@@ -28,7 +28,7 @@ def preprocessing(previous_state, state):
     # Remove flickering by taking the maximum value of each pixel colour
     state = torch.max(torch.stack([previous_state, state]), dim=0).values
     # crop the image, we don't need the header and the score bar
-    state = state[20:-50,:,:]
+    state = state[20:-50, :, :]
     # Resize to 84x84
     state = trans1(p(trans(state.permute(2, 0, 1)))).permute(1, 2, 0)
     # Extract luminance (https://en.wikipedia.org/wiki/Relative_luminance)

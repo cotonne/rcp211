@@ -39,7 +39,7 @@ class Central:
 
 
 def start_runner(episode: int, central: Central, rom):
-    runner = Runner(device, episode, central, rom, display_screen=False)
+    runner = Runner(device, episode, central, rom, display_screen=True)
     return runner.run()
 
 
@@ -62,7 +62,7 @@ BATCH_SIZE = 128
 
 def worker():
     alpha = 1e-4
-    alpha = 1
+    # alpha = 1
     print('Booting worker...')
     while True:
         gradients = central.queue.get(block=True)
@@ -150,7 +150,7 @@ def worker():
 
 threading.Thread(target=worker, daemon=True).start()
 
-NUMBER_OF_EPISODES = 400
+NUMBER_OF_EPISODES = 100
 MAX_WORKERS = 1
 
 with open('execution.log', 'w') as f:
