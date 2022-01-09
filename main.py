@@ -10,10 +10,10 @@ from ale_py import ALEInterface
 from ale_py.roms import Pacman
 from simple_chalk import chalk
 
-from actor import Actor
-from critic import Critic
-from experience_replay import ReplayMemory, Transition
-from runner import Runner, γ
+from ale.actor import Actor
+from ale.critic import Critic
+from experience_replay import ReplayMemory
+from runner import Runner
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 # device = "cpu"
@@ -38,8 +38,8 @@ class Central:
         self.memory = ReplayMemory(10000)
 
 
-def start_runner(episode: int, central: Central, rom):
-    runner = Runner(device, episode, central, rom, display_screen=True)
+def start_runner(episode: int, central: Central, rom, display_screen):
+    runner = Runner(device, episode, central, rom, display_screen=display_screen)
     return runner.run()
 
 
@@ -150,14 +150,14 @@ def worker():
 
 threading.Thread(target=worker, daemon=True).start()
 
-NUMBER_OF_EPISODES = 100
+NUMBER_OF_EPISODES = 1
 MAX_WORKERS = 1
 
 with open('execution.log', 'w') as f:
     with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
         futures = []
         for episode in range(NUMBER_OF_EPISODES):
-            futures.append(executor.submit(start_runner, episode, central, Pacman))
+            futures.append(executor.submit(start_runner, episode, central, Pacman, MAX_WORKERS == 1))
 
         for episode in range(NUMBER_OF_EPISODES):
             result = futures[episode].result()

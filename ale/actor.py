@@ -27,9 +27,17 @@ class Actor(nn.Module):
                nn.ReLU())
         self.eline1 = nn.Sequential(
                nn.Flatten(),
-               nn.Linear(in_features=64 * 11 * 10, out_features=512))
-        
-        self.mu_layer = nn.Linear(512, action_size)     
+               nn.Linear(in_features=64 * 11 * 10, out_features=512),
+               nn.ReLU())
+        self.eline2 = nn.Sequential(
+               nn.Flatten(),
+               nn.Linear(in_features=512, out_features=128),
+               nn.ReLU())
+        self.eline3 = nn.Sequential(
+               nn.Flatten(),
+               nn.Linear(in_features=128, out_features=32),
+               nn.ReLU())
+        self.mu_layer = nn.Linear(32, action_size)
         # self.log_std_layer = nn.Linear(512, action_size)
         initialize_uniformly(self.mu_layer)
         # initialize_uniformly(self.log_std_layer)
@@ -41,7 +49,8 @@ class Actor(nn.Module):
         x = self.econv2(x)
         x = self.econv3(x)
         x = self.eline1(x)
-        x = F.relu(x)
+        x = self.eline2(x)
+        x = self.eline3(x)
         # mu = (F.softmax(self.mu_layer(x)).squeeze(0))
         # action = torch.argmax(mu)
         # return action, torch.log(mu).sum()

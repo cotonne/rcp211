@@ -4,8 +4,8 @@ import torch
 import torch.nn.functional as F
 import torch.optim as optim
 
-from critic import Critic
-from actor import Actor
+from ale.critic import Critic
+from ale.actor import Actor
 from preprocessing import preprocessing
 from recorder import Recorder
 
