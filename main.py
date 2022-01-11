@@ -63,26 +63,59 @@ BATCH_SIZE = 128
 def worker():
     alpha = 1e-4
     # alpha = 1
+    lr = 1e-2
+    lr_decay = 1e-2 # learning rate decay
+    state_sum_critic = 0
+    state_sum_actor = 0
+    weight_decay = 1e-2
+    eps = 1e-10
+    step = 0
+
+    state_critic = {}
+    d_critic = Critic().to(device)
+    for name, param in d_critic.named_parameters():
+        state_critic[name] = torch.full_like(param, 0, memory_format=torch.preserve_format)
+
+
+    state_actor = {}
+    d_actor = Actor(action_size=len(legal_actions)).to(device)
+    for name, param in d_actor.named_parameters():
+        state_actor[name] = torch.full_like(param, 0, memory_format=torch.preserve_format)
+
     print('Booting worker...')
     while True:
         gradients = central.queue.get(block=True)
         try:
             while True:
                 print(chalk.green('Item received'))
+                clr = lr / (1 + (step - 1) * lr_decay)
+                step = step + 1
                 # Asynchronous Gradient Descent
                 dθv = gradients["critic"]
                 d_critic = Critic().to(device)
                 d_critic.load_state_dict(central.weight_memory["critic"])
                 with torch.no_grad():
                     for name, param in d_critic.named_parameters():
-                        param -= alpha * dθv[name]
+                        # ADAGRAD
+
+                        dθv_param = dθv[name].add(param, alpha = weight_decay)
+                        state_critic[name].addcmul_(dθv_param, dθv_param, value=1)
+                        std = state_critic[name].sqrt().add_(eps)
+                        param.addcdiv_(dθv_param, std, value=-clr)
 
                 dθ = gradients["actor"]
                 d_actor = Actor(action_size=len(legal_actions)).to(device)
                 d_actor.load_state_dict(central.weight_memory["actor"])
+                # print("BEFORE")
+                # print(d_actor.state_dict()["eline3.1.weight"])
                 with torch.no_grad():
                     for name, param in d_actor.named_parameters():
-                        param -= alpha * dθ[name]
+                        dθ_param = dθ[name].add(param, alpha = weight_decay)
+                        state_actor[name].addcmul_(dθ_param, dθ_param, value=1)
+                        std = state_actor[name].sqrt().add_(eps)
+                        param.addcdiv_(dθ_param, std, value=-clr)
+                # print("AFTER")
+                # print(d_actor.state_dict()["eline3.1.weight"])
 
                 central.weight_memory = {
                     "actor": d_actor.state_dict(),
@@ -150,8 +183,8 @@ def worker():
 
 threading.Thread(target=worker, daemon=True).start()
 
-NUMBER_OF_EPISODES = 1
-MAX_WORKERS = 1
+NUMBER_OF_EPISODES = 600
+MAX_WORKERS = 2
 
 with open('execution.log', 'w') as f:
     with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
