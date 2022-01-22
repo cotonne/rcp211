@@ -10,10 +10,11 @@ from ale_py import ALEInterface
 from ale_py.roms import Pacman
 from simple_chalk import chalk
 
-from ale.actor import Actor
-from ale.critic import Critic
+from ram.actor import Actor
+from ram.critic import Critic
+from ram.runner import Runner
+
 from experience_replay import ReplayMemory
-from runner import Runner
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 # device = "cpu"
@@ -61,7 +62,7 @@ BATCH_SIZE = 128
 
 
 def worker():
-    alpha = 1e-4
+    alpha = 1e-3
     # alpha = 1
     lr = 1e-2
     lr_decay = 1e-2 # learning rate decay
@@ -183,8 +184,8 @@ def worker():
 
 threading.Thread(target=worker, daemon=True).start()
 
-NUMBER_OF_EPISODES = 600
-MAX_WORKERS = 2
+NUMBER_OF_EPISODES = 1
+MAX_WORKERS = 1
 
 with open('execution.log', 'w') as f:
     with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:

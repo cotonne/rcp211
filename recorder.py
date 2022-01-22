@@ -19,7 +19,7 @@ def get_order(file):
         return math.inf
     return int(match.groups()[0])
 
-class Recorder():
+class Recorder:
     def __init__(self, episode: int) -> None:
         self.episode = episode
         self.dir = f'{self.episode}'
@@ -65,3 +65,23 @@ class Recorder():
             out.write(img_array[i])
         out.release()
         shutil.rmtree(self.dir, ignore_errors=True)
+
+
+class DummyRecorder:
+    def __init__(self, episode: int) -> None:
+        pass
+
+    def start(self) -> None:
+        pass
+
+    def save_system(self, system):
+        pass
+
+    def save_RGB(self, data: torch.tensor):
+        pass
+
+    def save_Y(self, data: torch.tensor):
+        pass
+
+    def stop(self) -> None:
+        pass
