@@ -42,7 +42,8 @@ class Runner():
 
         dθ = {name: torch.zeros(param.shape).to(self.device) for name, param in self.actor.named_parameters()}
         dθv = {name: torch.zeros(param.shape).to(self.device) for name, param in self.V_critic.named_parameters()}
-
+        min_policy_loss, min_value_loss = float("inf"), float("inf")
+        max_policy_loss, max_value_loss = -float("inf"), -float("inf")
         while not self.system.game_over():
             action, log_policy = self.actor(batch[3].unsqueeze(0))
             a_t = self.legal_actions[action]
@@ -93,6 +94,11 @@ class Runner():
             # Regularization: Entropy = - Σ p(a) log p(a)
             policy_loss += self.entropy_weight * -log_policy
 
+            min_policy_loss = min(min_policy_loss, policy_loss)
+            max_policy_loss = max(max_policy_loss, policy_loss)
+            min_value_loss = min(min_value_loss, value_loss)
+            max_value_loss = max(max_value_loss, value_loss)
+
             actor_optimizer.zero_grad()
             policy_loss.backward()
             actor_optimizer.step()
@@ -108,5 +114,6 @@ class Runner():
             "critic": dθv
         })
         self.system.reset_game()
-        return "Episode %d ended with score: %d, policy_loss: %f, value_loss: %f" % (self.episode, total_reward, policy_loss, value_loss)
+        return "Episode %d ended with score: %d, policy_loss: %f - %f, value_loss: %f - %s" % (
+            self.episode, total_reward, min_policy_loss, max_policy_loss, min_value_loss, max_value_loss)
 

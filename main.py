@@ -12,9 +12,9 @@ from simple_chalk import chalk
 
 from ram.actor import Actor
 from ram.critic import Critic
-from ram.runner import Runner
+from ram.runner import Runner, γ
 
-from experience_replay import ReplayMemory
+from experience_replay import ReplayMemory, Transition
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 # device = "cpu"
@@ -127,65 +127,50 @@ def worker():
             print(chalk.green("Empty queue"))
             pass
 
-        # # Experience Replay
-        # V_critic = Critic().to(device)
-        # V_critic.load_state_dict(central.weight_memory["critic"])
-        # print(chalk.green(f'Memory site = {len(central.memory)}'))
-        # if len(central.memory) < BATCH_SIZE:
-        #     continue
-        # print(chalk.green('Experience replay...'))
-        # transitions = central.memory.sample(BATCH_SIZE)
-        # # Transpose the batch (see https://stackoverflow.com/a/19343/3343043 for
-        # # detailed explanation). This converts batch-array of Transitions
-        # # to Transition of batch-arrays.
-        # batch = Transition(*zip(*transitions))
-        #
-        # # Compute a mask of non-final states and concatenate the batch elements
-        # # (a final state would've been the one after which simulation ended)
-        # non_final_mask = torch.tensor(tuple(map(lambda s: s is not None,
-        #                                         batch.next_state)), dtype=torch.bool)
-        # non_final_next_states = torch.cat([s for s in batch.next_state
-        #                                    if s is not None])
-        # state_batch = torch.cat(batch.state).to(device)
-        # # action_batch = torch.cat(batch.action)
-        # reward_batch = torch.cat(batch.reward).to(device)
-        #
-        # # Compute Q(s_t, a) - the model computes Q(s_t), then we select the
-        # # columns of actions taken. These are the actions which would've been taken
-        # # for each batch state according to policy_net
-        # state_action_values = V_critic(state_batch)  # .gather(1, action_batch)
-        #
-        # # Compute V(s_{t+1}) for all next states.
-        # # Expected values of actions for non_final_next_states are computed based
-        # # on the "older" target_net; selecting their best reward with max(1)[0].
-        # # This is merged based on the mask, such that we'll have either the expected
-        # # state value or 0 in case the state was final.
-        # next_state_values = torch.zeros(BATCH_SIZE).to(device)
-        # next_state_values[non_final_mask] = V_critic_target(non_final_next_states).max(1)[0].detach()
-        # # Compute the expected Q values
-        # expected_state_action_values = (next_state_values * γ) + reward_batch
-        #
-        # # Compute Huber loss
-        # criterion = nn.SmoothL1Loss()
-        # loss = criterion(state_action_values, expected_state_action_values.unsqueeze(1))
-        #
-        # # Optimize the model
-        # critic_optimizer.zero_grad()
-        # loss.backward()
-        # for param in V_critic.parameters():
-        #     param.grad.data.clamp_(-1, 1)
-        # critic_optimizer.step()
-        # central.weight_memory = {
-        #     "actor": central.weight_memory["actor"],
-        #     "critic": V_critic.state_dict(),
-        # }
-        # print(chalk.green('Experience replay done'))
+        if step % 10 == 0:
+            # # Experience Replay
+            V_critic = Critic().to(device)
+            V_critic.load_state_dict(central.weight_memory["critic"])
+            print(chalk.green(f'Memory site = {len(central.memory)}'))
+            if len(central.memory) < BATCH_SIZE:
+                continue
+            print(chalk.green('Experience replay...'))
+            transitions = central.memory.sample(BATCH_SIZE)
+            # Transpose the batch (see https://stackoverflow.com/a/19343/3343043 for
+            # detailed explanation). This converts batch-array of Transitions
+            # to Transition of batch-arrays.
+            batch = Transition(*zip(*transitions))
+
+            state_batch = torch.cat(batch.state).to(device)
+            reward_batch = torch.cat(batch.reward).to(device)
+
+            # Compute V(s_t)
+            V_s_t = V_critic(state_batch)
+
+            # Compute V(s_{t+1})
+            V_s_t_plus_1 = (V_s_t.detach() * γ) + reward_batch.unsqueeze(1).unsqueeze(1)
+
+            # Compute Huber loss
+            criterion = nn.SmoothL1Loss()
+            loss = criterion(V_s_t, V_s_t_plus_1)
+
+            # Optimize the model
+            critic_optimizer.zero_grad()
+            loss.backward()
+            for param in V_critic.parameters():
+                param.grad.data.clamp_(-1, 1)
+            critic_optimizer.step()
+            central.weight_memory = {
+                "actor": central.weight_memory["actor"],
+                "critic": V_critic.state_dict(),
+            }
+            print(chalk.green('Experience replay done'))
 
 
 threading.Thread(target=worker, daemon=True).start()
 
-NUMBER_OF_EPISODES = 1
-MAX_WORKERS = 1
+NUMBER_OF_EPISODES = 10000
+MAX_WORKERS = 4
 
 with open('execution.log', 'w') as f:
     with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
